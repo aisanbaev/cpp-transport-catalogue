@@ -25,15 +25,17 @@ struct BusInfo {
 
 class TransportCatalogue {
 public:
-    void AddStop(const std::string& stop_name, Coordinates coordinates);
+    void AddStop(const std::string& stop_name, const Coordinates& coordinates);
 
-    void AddBus(const std::string& bus_name, std::vector<std::string_view> stop_names);
+    void AddBus(const std::string& bus_name, const std::vector<std::string_view>& stop_names);
 
-    void AddDistance(const std::string_view stop_name, std::unordered_map<std::string_view, int> stop_to_distance);
+    void SetDistance(const std::string_view stop_departure, const std::string_view stop_arrival, int distance);
 
-    StopInfo GetStopInfo(std::string stop_name);
+    int GetDistance (const std::string_view stop_departure, const std::string_view stop_arrival) const;
 
-    BusInfo GetBusInfo(std::string bus_name);
+    StopInfo GetStopInfo(const std::string& stop_name) const;
+
+    BusInfo GetBusInfo(const std::string& bus_name) const;
 
 private:
     struct Stop {

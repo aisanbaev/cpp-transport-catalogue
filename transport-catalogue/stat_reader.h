@@ -5,3 +5,5 @@
 void PrintStopInfo(StopInfo stop);
 
 void PrintBusInfo(BusInfo bus);
+
+void StatRead(std::istream& is, TransportCatalogue& catalogue);

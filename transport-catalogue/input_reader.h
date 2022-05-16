@@ -10,17 +10,14 @@
 
 class Reader {
 public:
-    void Load(const std::string& s);
-
-    void TransferDataToCatalogue(TransportCatalogue& catalogue);
-
-    std::string ParseOutputQuery(const std::string& str);
+    void InputRead(std::istream& is, TransportCatalogue& catalogue);
 
 private:
     std::vector<std::string> stop_queries_;
     std::vector<std::string> bus_queries_;
 
-    std::string_view ClearWord (std::string_view s);
+    void Load(const std::string& str);
+    void TransferDataToCatalogue(TransportCatalogue& catalogue);
 
     std::vector<std::string_view> Split(std::string_view str, char separator);
 
@@ -29,3 +26,6 @@ private:
 
     std::tuple<std::string, std::vector<std::string_view>> ParseBusQuery(const std::string& str);
 };
+
+std::string ParseOutputQuery(const std::string& str);
+std::string_view ClearWord (std::string_view s);
