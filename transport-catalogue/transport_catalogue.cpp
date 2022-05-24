@@ -1,24 +1,25 @@
 #include "transport_catalogue.h"
+#include <iostream>
 
 #include <unordered_set>
 
 using namespace std;
 
-void TransportCatalogue::AddStop(const string& stop_name, const Coordinates& coordinates) {
+void TransportCatalogue::AddStop(const string& stop_name, const geo::Coordinates& coordinates) {
     const Stop* stop = &stops_.emplace_back(Stop{stop_name, coordinates});
 
     stopname_to_stop_[stop->name] = stop;
     stop_to_buses_[stop->name];
 }
 
-void TransportCatalogue::AddBus(const string& bus_name, const vector<string_view>& stop_names) {
+void TransportCatalogue::AddBus(const string& bus_name, const vector<string_view>& stop_names, int num_stops) {
     std::vector<const Stop*> stops;
 
     for (auto s : stop_names) {
         stops.push_back(stopname_to_stop_.at(s));
     }
 
-    const Bus* bus = &buses_.emplace_back(Bus{bus_name, stops});
+    const Bus* bus = &buses_.emplace_back(Bus{bus_name, stops, num_stops});
     busname_to_bus_[bus->name] = bus;
 
     for (const Stop* stop : bus->stops) {
@@ -44,25 +45,20 @@ int TransportCatalogue::GetDistance (const std::string_view stop_departure, cons
 
 StopInfo TransportCatalogue::GetStopInfo(const string& stop_name) const {
     if (stop_to_buses_.count(stop_name) == 0) {
-        return {stop_name, false, string{}};
+        return {stop_name, false, {}};
     }
 
     set<string_view> print_set = stop_to_buses_.at(stop_name);
     if (print_set.empty()) {
-        return {stop_name, true, string{}};
+        return {stop_name, true, {}};
     }
 
-    string result;
-    for (string_view s : print_set) {
-        result = result + " "s + string(s);
-    }
-
-    return {stop_name, true, result};
+    return {stop_name, true, print_set};
 }
 
 BusInfo TransportCatalogue::GetBusInfo (const string& bus_name) const {
     if (busname_to_bus_.count(bus_name) == 0) {
-        return BusInfo{bus_name, 0, 0, 0, 0};
+        return BusInfo{bus_name, false, 0, 0, 0, 0};
     }
 
     const Bus* bus = busname_to_bus_.at(bus_name);
@@ -74,10 +70,14 @@ BusInfo TransportCatalogue::GetBusInfo (const string& bus_name) const {
     names.insert(bus->stops[0]->name);
 
     for (int i = 1; i < size; ++i) {
-        geo_dist += ComputeDistance({bus->stops[i - 1]->coordinates}, {bus->stops[i]->coordinates});
+        geo_dist += geo::ComputeDistance({bus->stops[i - 1]->coordinates}, {bus->stops[i]->coordinates});
         dist += GetDistance(bus->stops[i - 1]->name, bus->stops[i]->name);
         names.insert(bus->stops[i]->name);
     }
 
-    return {bus_name, size, names.size(), dist, geo_dist};
+    return {bus_name, true, size, static_cast<int>(names.size()), dist, geo_dist};
+}
+
+const std::unordered_map<std::string_view, const Bus*>& TransportCatalogue::GetAllBusesInfo() const {
+    return busname_to_bus_;
 }

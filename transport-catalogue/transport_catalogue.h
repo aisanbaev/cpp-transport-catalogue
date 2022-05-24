@@ -1,33 +1,31 @@
-#pragma once
-
-#include <string>
-#include <string_view>
-#include <vector>
-#include <deque>
 #include <unordered_map>
 #include <set>
+#include <string>
+#include <vector>
+#include <deque>
 
-#include "geo.h"
+#include "domain.h"
 
 struct StopInfo {
     std::string stop_name;
     bool find_stop;
-    std::string buses;
+    std::set<std::string_view> buses;
 };
 
 struct BusInfo {
     std::string bus_name;
+    bool find_bus;
     int num_stops;
-    size_t num_unique_stops;
+    int num_unique_stops;
     int distance;
     double geo_distance;
 };
 
 class TransportCatalogue {
 public:
-    void AddStop(const std::string& stop_name, const Coordinates& coordinates);
+    void AddStop(const std::string& stop_name, const geo::Coordinates& coordinates);
 
-    void AddBus(const std::string& bus_name, const std::vector<std::string_view>& stop_names);
+    void AddBus(const std::string& bus_name, const std::vector<std::string_view>& stop_names, int num_stops);
 
     void SetDistance(const std::string_view stop_departure, const std::string_view stop_arrival, int distance);
 
@@ -37,17 +35,9 @@ public:
 
     BusInfo GetBusInfo(const std::string& bus_name) const;
 
+    const std::unordered_map<std::string_view, const Bus*>& GetAllBusesInfo() const;
+
 private:
-    struct Stop {
-        std::string name;
-        Coordinates coordinates;
-    };
-
-    struct Bus {
-        std::string name;
-        std::vector<const Stop*> stops;
-    };
-
     std::deque<Stop> stops_;
     std::deque<Bus> buses_;
 
@@ -66,3 +56,5 @@ private:
 
     std::unordered_map<std::pair<const Stop*, const Stop*>, int, StopPairHasher> stop_ptr_pair_to_distance_;
 };
+
+
