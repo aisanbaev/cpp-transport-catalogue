@@ -287,97 +287,58 @@ void Node::OstreamValuePrinter::operator()(std::string value) const {
     out << "\"";
 }
 
-Node::Node(nullptr_t) {
-}
-
-Node::Node(Array array)
-    : value_(move(array)) {
-}
-
-Node::Node(Dict map)
-    : value_(move(map)) {
-}
-
-Node::Node(string value)
-    : value_(move(value)) {
-}
-
 bool Node::operator==(const Node& other) const {
-    return GetValue() == other.GetValue();
+    return *this == other.GetValue();
 }
 
 bool Node::operator!=(const Node& other) const {
-    return GetValue() != other.GetValue();
+    return *this != other.GetValue();
 }
 
 bool Node::IsInt() const {
-    if (holds_alternative<int>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<int>(*this);
 }
 
 bool Node::IsDouble() const {
-    if (holds_alternative<int>(GetValue()) || holds_alternative<double>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<int>(*this) || holds_alternative<double>(*this);
 }
 
 bool Node::IsPureDouble() const {
-    if (holds_alternative<double>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<double>(*this);
 }
 
 bool Node::IsBool() const {
-    if (holds_alternative<bool>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<bool>(*this);
 }
 
 bool Node::IsString() const {
-    if (holds_alternative<string>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<string>(*this);
 }
 
 bool Node::IsNull() const {
-    if (holds_alternative<nullptr_t>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<nullptr_t>(*this);
 }
 
 bool Node::IsArray() const {
-    if (holds_alternative<Array>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<Array>(*this);
 }
 
 bool Node::IsMap() const {
-    if (holds_alternative<Dict>(GetValue())) {
-        return true;
-    }
-    return false;
+    return holds_alternative<Dict>(*this);
 }
 
 int Node::AsInt() const {
     if (!IsInt()) {
         throw logic_error("Invalid type"s);
     }
-    return get<int>(value_);
+    return get<int>(*this);
 }
 
 bool Node::AsBool() const {
     if (!IsBool()) {
         throw logic_error("Invalid type"s);
     }
-    return get<bool>(value_);
+    return get<bool>(*this);
 }
 
 double Node::AsDouble() const {
@@ -385,30 +346,30 @@ double Node::AsDouble() const {
         throw logic_error("Invalid type"s);
     }
     if (IsPureDouble()) {
-        return get<double>(value_);
+        return get<double>(*this);
     }
-    return get<int>(value_) * 1.0;
+    return get<int>(*this) * 1.0;
 }
 
 const string& Node::AsString() const {
     if (!IsString()) {
         throw logic_error("Invalid type"s);
     }
-    return get<string>(value_);
+    return get<string>(*this);
 }
 
 const Array& Node::AsArray() const {
     if (!IsArray()) {
         throw logic_error("Invalid type"s);
     }
-    return get<Array>(value_);
+    return get<Array>(*this);
 }
 
 const Dict& Node::AsMap() const {
     if (!IsMap()) {
         throw logic_error("Invalid type"s);
     }
-    return get<Dict>(value_);
+    return get<Dict>(*this);
 }
 
 Document::Document(Node root)
@@ -436,3 +397,4 @@ void Print(const Document& doc, std::ostream& output) {
 }
 
 }  // namespace json
+

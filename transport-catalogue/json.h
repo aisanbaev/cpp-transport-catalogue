@@ -19,9 +19,12 @@ public:
     using runtime_error::runtime_error;
 };
 
-class Node {
+class Node final
+    : private std::variant<std::nullptr_t, Array, Dict, bool, int, double, std::string>
+{
 public:
-    using Value = std::variant<std::nullptr_t, Array, Dict, bool, int, double, std::string>;
+    // Делаем доступными все конструкторы родительского класса variant
+    using variant::variant;
 
     struct OstreamValuePrinter {
         std::ostream& out;
@@ -34,14 +37,7 @@ public:
         void operator() (Number value) const { out << std::boolalpha << value; }
     };
 
-    Node() = default;
-    Node(std::nullptr_t);
-    Node(Array array);
-    Node(Dict map);
-    Node(std::string value);
-
-    template <typename Number>
-    Node(Number value) : value_(value) {}
+    const variant& GetValue() const { return *this; }
 
     bool operator==(const Node& other) const;
     bool operator!=(const Node& other) const;
@@ -55,17 +51,12 @@ public:
     bool IsArray() const;
     bool IsMap() const;
 
-    const Value& GetValue() const { return value_; }
-
     int AsInt() const;
     bool AsBool() const;
     double AsDouble() const;
     const std::string& AsString() const;
     const Array& AsArray() const;
     const Dict& AsMap() const;
-
-private:
-    Value value_;
 };
 
 class Document {
@@ -86,3 +77,4 @@ Document Load(std::istream& input);
 void Print(const Document& doc, std::ostream& output);
 
 }  // namespace json
+

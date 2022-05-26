@@ -25,4 +25,8 @@ private:
     const json::Array& GetBaseQueries() const;
     const json::Array& GetStatQueries() const;
     const json::Dict& GetRenderSettings() const;
+
+    json::Dict StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue);
+    json::Dict StatReadStop(const json::Node& stat_query, const TransportCatalogue& catalogue);
+    json::Dict StatReadSVG(const json::Node& stat_query, const std::string& svg_doc);
 };

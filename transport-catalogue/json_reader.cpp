@@ -133,61 +133,69 @@ void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
     }
 }
 
+json::Dict ReaderJSON::StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue) {
+    string stop_name = stat_query.AsMap().at("name"s).AsString();
+    auto stop_info = catalogue.GetStopInfo(stop_name);
+
+    if (!stop_info.find_stop) {
+        return Dict{
+              {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
+            , {"error_message"s, "not found"s}
+        };
+    }
+
+    Array buses;
+    for (string_view s : stop_info.buses) {
+        buses.push_back(Node{string(s)});
+    }
+
+    return Dict{
+          {"buses"s, buses}
+        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
+    };
+}
+
+json::Dict ReaderJSON::StatReadStop(const json::Node& stat_query, const TransportCatalogue& catalogue) {
+    string bus_name = stat_query.AsMap().at("name"s).AsString();
+    auto bus_info = catalogue.GetBusInfo(bus_name);
+
+    if (!bus_info.find_bus) {
+        return Dict{
+              {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
+            , {"error_message"s, "not found"s}
+        };
+    }
+
+    return Dict{
+          {"curvature"s, bus_info.distance / bus_info.geo_distance}
+        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
+        , {"route_length"s, bus_info.distance}
+        , {"stop_count", bus_info.num_stops}
+        , {"unique_stop_count", bus_info.num_unique_stops}
+    };
+}
+
+json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& svg_doc) {
+    return Dict{
+          {"map"s, svg_doc}
+        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
+    };
+}
+
 json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const string& svg_doc) {
     Array result;
     for (const auto& stat_query : GetStatQueries()) {
+
         if (stat_query.AsMap().at("type"s) == "Stop"s) {
-            string stop_name = stat_query.AsMap().at("name"s).AsString();
-            auto stop_info = catalogue.GetStopInfo(stop_name);
-
-            if (!stop_info.find_stop) {
-                result.push_back(Dict{
-                    {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-                  , {"error_message"s, "not found"s}
-                });
-                continue;
-            }
-
-            Array buses;
-            for (string_view s : stop_info.buses) {
-                buses.push_back(Node{string(s)});
-            }
-
-            Node dict_node{Dict{
-                  {"buses"s, {buses}}
-                , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-            }};
-            result.push_back(dict_node);
+            result.push_back(StatReadBus(stat_query, catalogue));
         }
 
         if (stat_query.AsMap().at("type"s) == "Bus"s) {
-            string bus_name = stat_query.AsMap().at("name"s).AsString();
-            auto bus_info = catalogue.GetBusInfo(bus_name);
-
-            if (!bus_info.find_bus) {
-                result.push_back(Dict{
-                      {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-                    , {"error_message"s, "not found"s}
-                });
-                continue;
-            }
-
-            Node dict_node{Dict{
-                  {"curvature"s, bus_info.distance / bus_info.geo_distance}
-                , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-                , {"route_length"s, bus_info.distance}
-                , {"stop_count", bus_info.num_stops}
-                , {"unique_stop_count", bus_info.num_unique_stops}
-            }};
-            result.push_back(dict_node);
+            result.push_back(StatReadStop(stat_query, catalogue));
         }
 
         if (stat_query.AsMap().at("type"s) == "Map"s) {
-            Node dict_node{Dict{
-                  {"map"s, svg_doc}
-                , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-            }};
-            result.push_back(dict_node);
+            result.push_back(StatReadSVG(stat_query, svg_doc));
         }
     }
     return Document(result);
