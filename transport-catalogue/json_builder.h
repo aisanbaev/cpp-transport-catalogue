@@ -30,6 +30,8 @@ private:
     Node root_;
     std::vector<Node*> nodes_stack_{&root_};
     std::optional<std::string> key_;
+
+    void StartContainer(Node container);
 };
 
 class KeyItemContext : private Builder {

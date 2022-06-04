@@ -13,6 +13,10 @@ using namespace std::literals;
     }
 
     Builder& Builder::Value(Node::Value node) {
+        if (nodes_stack_.empty()) {
+            throw std::logic_error("Node initialization error"s);
+        }
+
         if (root_.IsNull()) {
             root_.SetValue() = std::move(node);
             nodes_stack_.pop_back();
@@ -35,43 +39,32 @@ using namespace std::literals;
         return *this;
     }
 
-    DictItemContext Builder::StartDict() {
+    void Builder::StartContainer(Node container) {
         if (nodes_stack_.empty()) {
-            throw std::logic_error("Dictionary creating error"s);
+            throw std::logic_error("Container initialization error"s);
         }
 
         if (root_.IsNull()) {
-            root_ = std::move(Node(Dict{}));
-
-        } else if (nodes_stack_.back()->IsArray()) {
-            nodes_stack_.push_back(&std::get<Array>(nodes_stack_.back()->SetValue()).emplace_back(Node(Dict{})));
+            root_ = std::move(container);
 
         } else if (nodes_stack_.back()->IsDict() && key_) {
-            auto [it, b] = std::get<Dict>(nodes_stack_.back()->SetValue()).emplace(*key_, Node(Dict{}));
+            auto [it, _] = std::get<Dict>(nodes_stack_.back()->SetValue()).emplace(*key_, container);
             nodes_stack_.push_back(&it->second);
             key_.reset();
+
+        } else if (nodes_stack_.back()->IsArray()) {
+            nodes_stack_.push_back(&std::get<Array>(nodes_stack_.back()->SetValue()).emplace_back(container));
         }
+    }
+
+    DictItemContext Builder::StartDict() {
+        StartContainer(Node(Dict{}));
 
         return *this;
     }
 
     ArrayItemContext Builder::StartArray() {
-        if (nodes_stack_.empty()) {
-            throw std::logic_error("Array creating error"s);
-        }
-
-        if (root_.IsNull()) {
-            root_ = std::move(Node(Array{}));
-
-        } else if (nodes_stack_.back()->IsDict() && key_) {
-            auto [it, b] = std::get<Dict>(nodes_stack_.back()->SetValue()).emplace(*key_, Node(Array{}));
-            nodes_stack_.push_back(&it->second);
-            key_.reset();
-
-        } else if (nodes_stack_.back()->IsArray()) {
-            nodes_stack_.push_back(&std::get<Array>(nodes_stack_.back()->SetValue()).emplace_back(Node(Array{})));
-
-        }
+        StartContainer(Node(Array{}));
 
         return *this;
     }
