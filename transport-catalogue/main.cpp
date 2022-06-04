@@ -4,6 +4,7 @@
 #include "geo.h"
 #include "json_reader.h"
 #include "map_renderer.h"
+#include "json_builder.h"
 
 int main () {
 
@@ -24,6 +25,6 @@ int main () {
     std::string routes_map_str = map_renderer.ToString(document);
     json::Document json_doc = reader.StatReadToJSON(catalogue, routes_map_str);
     json::Print(json_doc, std::cout);
-
+    
     return 0;
 }

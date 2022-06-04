@@ -1,18 +1,19 @@
 #include "json_reader.h"
+#include "json_builder.h"
 
 using namespace std;
 using namespace json;
 
 const Array& ReaderJSON::GetBaseQueries() const {
-    return json_document_.GetRoot().AsMap().at("base_requests"s).AsArray();
+    return json_document_.GetRoot().AsDict().at("base_requests"s).AsArray();
 }
 
 const Array& ReaderJSON::GetStatQueries() const {
-    return json_document_.GetRoot().AsMap().at("stat_requests"s).AsArray();
+    return json_document_.GetRoot().AsDict().at("stat_requests"s).AsArray();
 }
 
 const Dict& ReaderJSON::GetRenderSettings() const {
-    return json_document_.GetRoot().AsMap().at("render_settings"s).AsMap();
+    return json_document_.GetRoot().AsDict().at("render_settings"s).AsDict();
 }
 
 void ReaderJSON::LoadJSON (std::istream& is) {
@@ -20,27 +21,29 @@ void ReaderJSON::LoadJSON (std::istream& is) {
 }
 
 void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
-    render_set.width = GetRenderSettings().at("width"s).AsDouble();
-    render_set.height = GetRenderSettings().at("height"s).AsDouble();
+    const Dict& setting_map = GetRenderSettings();
 
-    render_set.padding = GetRenderSettings().at("padding"s).AsDouble();
+    render_set.width = setting_map.at("width"s).AsDouble();
+    render_set.height = setting_map.at("height"s).AsDouble();
 
-    render_set.line_width = GetRenderSettings().at("line_width"s).AsDouble();
-    render_set.stop_radius = GetRenderSettings().at("stop_radius"s).AsDouble();
+    render_set.padding = setting_map.at("padding"s).AsDouble();
 
-    render_set.bus_label_font_size = GetRenderSettings().at("bus_label_font_size"s).AsInt();
-    render_set.bus_label_offset.x = GetRenderSettings().at("bus_label_offset"s).AsArray().at(0).AsDouble();
-    render_set.bus_label_offset.y = GetRenderSettings().at("bus_label_offset"s).AsArray().at(1).AsDouble();
+    render_set.line_width = setting_map.at("line_width"s).AsDouble();
+    render_set.stop_radius = setting_map.at("stop_radius"s).AsDouble();
 
-    render_set.stop_label_font_size = GetRenderSettings().at("stop_label_font_size"s).AsInt();
-    render_set.stop_label_offset.x = GetRenderSettings().at("stop_label_offset"s).AsArray().at(0).AsDouble();
-    render_set.stop_label_offset.y = GetRenderSettings().at("stop_label_offset"s).AsArray().at(1).AsDouble();
+    render_set.bus_label_font_size = setting_map.at("bus_label_font_size"s).AsInt();
+    render_set.bus_label_offset.x = setting_map.at("bus_label_offset"s).AsArray().at(0).AsDouble();
+    render_set.bus_label_offset.y = setting_map.at("bus_label_offset"s).AsArray().at(1).AsDouble();
 
-    if (GetRenderSettings().at("underlayer_color"s).IsString()) {
-        render_set.underlayer_color = GetRenderSettings().at("underlayer_color"s).AsString();
+    render_set.stop_label_font_size = setting_map.at("stop_label_font_size"s).AsInt();
+    render_set.stop_label_offset.x = setting_map.at("stop_label_offset"s).AsArray().at(0).AsDouble();
+    render_set.stop_label_offset.y = setting_map.at("stop_label_offset"s).AsArray().at(1).AsDouble();
+
+    if (setting_map.at("underlayer_color"s).IsString()) {
+        render_set.underlayer_color = setting_map.at("underlayer_color"s).AsString();
     } else {
-        const int rgb_size = GetRenderSettings().at("underlayer_color"s).AsArray().size();
-        const auto rgb_array = GetRenderSettings().at("underlayer_color"s).AsArray();
+        const int rgb_size = setting_map.at("underlayer_color"s).AsArray().size();
+        const auto rgb_array = setting_map.at("underlayer_color"s).AsArray();
 
         if (rgb_size == 3) {
             svg::Rgb rgb_color;
@@ -58,9 +61,9 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
         }
     }
 
-    render_set.underlayer_width = GetRenderSettings().at("underlayer_width"s).AsDouble();
+    render_set.underlayer_width = setting_map.at("underlayer_width"s).AsDouble();
 
-    for (const auto& color : GetRenderSettings().at("color_palette"s).AsArray()) {
+    for (const auto& color : setting_map.at("color_palette"s).AsArray()) {
         if (color.IsString()) {
             render_set.color_palette.push_back(color.AsString());
         } else {
@@ -89,21 +92,21 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
 void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
 
     for (const auto& stop_query : GetBaseQueries()) {
-        if (stop_query.AsMap().at("type"s) != "Stop"s) {
+        if (stop_query.AsDict().at("type"s) != "Stop"s) {
             continue;
         }
-        string stop_name = stop_query.AsMap().at("name"s).AsString();
-        double lat = stop_query.AsMap().at("latitude"s).AsDouble();
-        double lng = stop_query.AsMap().at("longitude"s).AsDouble();
+        string stop_name = stop_query.AsDict().at("name"s).AsString();
+        double lat = stop_query.AsDict().at("latitude"s).AsDouble();
+        double lng = stop_query.AsDict().at("longitude"s).AsDouble();
         catalogue.AddStop(stop_name, {lat,lng});
     }
 
     for (const auto& bus_query : GetBaseQueries()) {
-        if (bus_query.AsMap().at("type"s) != "Bus"s) {
+        if (bus_query.AsDict().at("type"s) != "Bus"s) {
             continue;
         }
-        string bus_name = bus_query.AsMap().at("name"s).AsString();
-        const Array& stops = bus_query.AsMap().at("stops"s).AsArray();
+        string bus_name = bus_query.AsDict().at("name"s).AsString();
+        const Array& stops = bus_query.AsDict().at("stops"s).AsArray();
         vector<string_view> stop_names;
 
         for (const auto& node : stops) {
@@ -111,7 +114,7 @@ void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
         }
         int num_stops = stop_names.size();
 
-        if (!bus_query.AsMap().at("is_roundtrip"s).AsBool()) {
+        if (!bus_query.AsDict().at("is_roundtrip"s).AsBool()) {
             stop_names.reserve(2 * stop_names.size());
             stop_names.insert(stop_names.end(), stop_names.rbegin() + 1, stop_names.rend());
         }
@@ -120,12 +123,12 @@ void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
     }
 
     for (const auto& stop_query : GetBaseQueries()) {
-        if (stop_query.AsMap().at("type"s) != "Stop"s) {
+        if (stop_query.AsDict().at("type"s) != "Stop"s) {
             continue;
         }
 
-        string stop_depart = stop_query.AsMap().at("name"s).AsString();
-        const Dict& name_to_dist = stop_query.AsMap().at("road_distances"s).AsMap();
+        string stop_depart = stop_query.AsDict().at("name"s).AsString();
+        const Dict& name_to_dist = stop_query.AsDict().at("road_distances"s).AsDict();
 
         for (const auto& [stop_arrival, distance] : name_to_dist) {
             catalogue.SetDistance(stop_depart, stop_arrival, distance.AsInt());
@@ -134,14 +137,16 @@ void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
 }
 
 json::Dict ReaderJSON::StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue) {
-    string stop_name = stat_query.AsMap().at("name"s).AsString();
+    string stop_name = stat_query.AsDict().at("name"s).AsString();
     auto stop_info = catalogue.GetStopInfo(stop_name);
 
     if (!stop_info.find_stop) {
-        return Dict{
-              {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-            , {"error_message"s, "not found"s}
-        };
+        return json::Builder{}
+                    .StartDict()
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                        .Key("error_message"s).Value("not found"s)
+                    .EndDict()
+                    .Build().AsDict();
     }
 
     Array buses;
@@ -149,52 +154,60 @@ json::Dict ReaderJSON::StatReadBus(const json::Node& stat_query, const Transport
         buses.push_back(Node{string(s)});
     }
 
-    return Dict{
-          {"buses"s, buses}
-        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-    };
+    return json::Builder{}
+                    .StartDict()
+                        .Key("buses"s).Value(buses)
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                    .EndDict()
+                    .Build().AsDict();
 }
 
 json::Dict ReaderJSON::StatReadStop(const json::Node& stat_query, const TransportCatalogue& catalogue) {
-    string bus_name = stat_query.AsMap().at("name"s).AsString();
+    string bus_name = stat_query.AsDict().at("name"s).AsString();
     auto bus_info = catalogue.GetBusInfo(bus_name);
 
     if (!bus_info.find_bus) {
-        return Dict{
-              {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-            , {"error_message"s, "not found"s}
-        };
+        return json::Builder{}
+                    .StartDict()
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                        .Key("error_message"s).Value("not found"s)
+                    .EndDict()
+                    .Build().AsDict();
     }
 
-    return Dict{
-          {"curvature"s, bus_info.distance / bus_info.geo_distance}
-        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-        , {"route_length"s, bus_info.distance}
-        , {"stop_count", bus_info.num_stops}
-        , {"unique_stop_count", bus_info.num_unique_stops}
-    };
+    return json::Builder{}
+                    .StartDict()
+                        .Key("curvature"s).Value(bus_info.distance / bus_info.geo_distance)
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                        .Key("route_length"s).Value(bus_info.distance)
+                        .Key("stop_count").Value(bus_info.num_stops)
+                        .Key("unique_stop_count").Value(bus_info.num_unique_stops)
+                    .EndDict()
+                    .Build().AsDict();
 }
 
 json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& svg_doc) {
-    return Dict{
-          {"map"s, svg_doc}
-        , {"request_id"s, stat_query.AsMap().at("id"s).AsInt()}
-    };
+    return json::Builder{}
+                    .StartDict()
+                        .Key("map"s).Value(svg_doc)
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                    .EndDict()
+                    .Build().AsDict();
 }
 
 json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const string& svg_doc) {
     Array result;
     for (const auto& stat_query : GetStatQueries()) {
 
-        if (stat_query.AsMap().at("type"s) == "Stop"s) {
+        if (stat_query.AsDict().at("type"s) == "Stop"s) {
             result.push_back(StatReadBus(stat_query, catalogue));
         }
 
-        if (stat_query.AsMap().at("type"s) == "Bus"s) {
+        if (stat_query.AsDict().at("type"s) == "Bus"s) {
             result.push_back(StatReadStop(stat_query, catalogue));
         }
 
-        if (stat_query.AsMap().at("type"s) == "Map"s) {
+        if (stat_query.AsDict().at("type"s) == "Map"s) {
             result.push_back(StatReadSVG(stat_query, svg_doc));
         }
     }
