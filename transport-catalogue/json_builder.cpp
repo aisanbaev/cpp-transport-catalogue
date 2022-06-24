@@ -98,9 +98,11 @@ using namespace std::literals;
     ValueKeyItemContext KeyItemContext::Value(Node::Value node) {
         return builder_.Value(node);
     }
+
     ArrayItemContext KeyItemContext::StartArray() {
         return builder_.StartArray();
     }
+
     DictItemContext KeyItemContext::StartDict() {
         return builder_.StartDict();
     }
@@ -108,6 +110,7 @@ using namespace std::literals;
     KeyItemContext ValueKeyItemContext::Key(std::string key) {
         return builder_.Key(key);
     }
+
     Builder& ValueKeyItemContext::EndDict() {
         return builder_.EndDict();
     }
@@ -115,12 +118,15 @@ using namespace std::literals;
     DictItemContext ValueItemContext::StartDict() {
         return builder_.StartDict();
     }
+
     ArrayItemContext ValueItemContext::StartArray() {
         return builder_.StartArray();
     }
+
     Builder& ValueItemContext::EndArray() {
         return builder_.EndArray();
     }
+
     ValueItemContext ValueItemContext::Value(Node::Value node) {
         return builder_.Value(node);
     }
@@ -128,6 +134,7 @@ using namespace std::literals;
     KeyItemContext DictItemContext::Key(std::string key) {
         return builder_.Key(key);
     }
+
     Builder& DictItemContext::EndDict() {
         return builder_.EndDict();
     }
@@ -135,12 +142,15 @@ using namespace std::literals;
     ValueItemContext ArrayItemContext::Value(Node::Value node) {
         return builder_.Value(node);
     }
+
     DictItemContext ArrayItemContext::StartDict() {
         return builder_.StartDict();
     }
+
     ArrayItemContext ArrayItemContext::StartArray() {
         return builder_.StartArray();
     }
+
     Builder& ArrayItemContext::EndArray() {
         return builder_.EndArray();
     }

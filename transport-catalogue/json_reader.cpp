@@ -1,5 +1,6 @@
 #include "json_reader.h"
 #include "json_builder.h"
+#include "graph.h"
 
 using namespace std;
 using namespace json;
@@ -16,8 +17,17 @@ const Dict& ReaderJSON::GetRenderSettings() const {
     return json_document_.GetRoot().AsDict().at("render_settings"s).AsDict();
 }
 
+const Dict& ReaderJSON::GetRoutingSettings() const {
+    return json_document_.GetRoot().AsDict().at("routing_settings"s).AsDict();
+}
+
 void ReaderJSON::LoadJSON (std::istream& is) {
     json_document_ = Load(is);
+}
+
+RouteSettings ReaderJSON::ReadRoutingSettings() const {
+    return {GetRoutingSettings().at("bus_wait_time"s).AsInt(),
+            GetRoutingSettings().at("bus_velocity"s).AsDouble()};
 }
 
 void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
@@ -41,6 +51,7 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
 
     if (setting_map.at("underlayer_color"s).IsString()) {
         render_set.underlayer_color = setting_map.at("underlayer_color"s).AsString();
+
     } else {
         const int rgb_size = setting_map.at("underlayer_color"s).AsArray().size();
         const auto rgb_array = setting_map.at("underlayer_color"s).AsArray();
@@ -51,6 +62,7 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
             rgb_color.green = rgb_array.at(1).AsInt();
             rgb_color.blue = rgb_array.at(2).AsInt();
             render_set.underlayer_color = rgb_color;
+
         } else if (rgb_size == 4) {
             svg::Rgba rgba_color;
             rgba_color.red = rgb_array.at(0).AsInt();
@@ -66,27 +78,28 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
     for (const auto& color : setting_map.at("color_palette"s).AsArray()) {
         if (color.IsString()) {
             render_set.color_palette.push_back(color.AsString());
-        } else {
-        const int rgb_size = color.AsArray().size();
-        const auto rgb_array = color.AsArray();
 
-        if (rgb_size == 3) {
-            svg::Rgb rgb_color;
-            rgb_color.red = rgb_array.at(0).AsInt();
-            rgb_color.green = rgb_array.at(1).AsInt();
-            rgb_color.blue = rgb_array.at(2).AsInt();
-            render_set.color_palette.push_back(rgb_color);
-        } else if (rgb_size == 4) {
-            svg::Rgba rgba_color;
-            rgba_color.red = rgb_array.at(0).AsInt();
-            rgba_color.green = rgb_array.at(1).AsInt();
-            rgba_color.blue = rgb_array.at(2).AsInt();
-            rgba_color.opacity = rgb_array.at(3).AsDouble();
-            render_set.color_palette.push_back(rgba_color);
-        }
+        } else {
+            const int rgb_size = color.AsArray().size();
+            const auto rgb_array = color.AsArray();
+
+            if (rgb_size == 3) {
+                svg::Rgb rgb_color;
+                rgb_color.red = rgb_array.at(0).AsInt();
+                rgb_color.green = rgb_array.at(1).AsInt();
+                rgb_color.blue = rgb_array.at(2).AsInt();
+                render_set.color_palette.push_back(rgb_color);
+
+            } else if (rgb_size == 4) {
+                svg::Rgba rgba_color;
+                rgba_color.red = rgb_array.at(0).AsInt();
+                rgba_color.green = rgb_array.at(1).AsInt();
+                rgba_color.blue = rgb_array.at(2).AsInt();
+                rgba_color.opacity = rgb_array.at(3).AsDouble();
+                render_set.color_palette.push_back(rgba_color);
+            }
         }
     }
-
 }
 
 void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
@@ -195,7 +208,62 @@ json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& s
                     .Build().AsDict();
 }
 
-json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const string& svg_doc) {
+json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const graph::Router<double>& router) {
+    const RouteSettings route_settings = ReadRoutingSettings();
+    const auto& routes = catalogue.GetStatRoutes();
+
+    graph::VertexId stop_from_id = catalogue.GetStopId(stat_query.AsDict().at("from"s).AsString());
+    graph::VertexId stop_to_id = catalogue.GetStopId(stat_query.AsDict().at("to"s).AsString());
+    auto route_info = router.BuildRoute(stop_from_id, stop_to_id);
+
+    Array items;
+
+    if (route_info) {
+
+        for (int num_edge : (*route_info).edges) {
+            Dict wait = json::Builder{}
+                             .StartDict()
+                                 .Key("type"s).Value("Wait"s)
+                                 .Key("stop_name"s).Value(routes[num_edge].stop_from->name)
+                                 .Key("time"s).Value(route_settings.bus_wait_time)
+                             .EndDict()
+                             .Build().AsDict();
+
+            Dict trip = json::Builder{}
+                             .StartDict()
+                                 .Key("type"s).Value("Bus"s)
+                                 .Key("bus"s).Value(routes[num_edge].bus->name)
+                                 .Key("span_count"s).Value(routes[num_edge].stop_count)
+                                 .Key("time"s).Value(routes[num_edge].travel_time)
+                             .EndDict()
+                             .Build().AsDict();
+
+            items.push_back(wait);
+            items.push_back(trip);
+        }
+
+        return json::Builder{}
+                    .StartDict()
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                        .Key("total_time"s).Value((*route_info).weight)
+                        .Key("items"s).Value(items)
+                    .EndDict()
+                    .Build().AsDict();
+
+    } else {
+
+        return json::Builder{}
+                    .StartDict()
+                        .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
+                        .Key("error_message"s).Value("not found"s)
+                    .EndDict()
+                    .Build().AsDict();
+
+    }
+
+}
+
+json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const graph::Router<double>& router, const string& svg_doc) {
     Array result;
     for (const auto& stat_query : GetStatQueries()) {
 
@@ -209,6 +277,10 @@ json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const s
 
         if (stat_query.AsDict().at("type"s) == "Map"s) {
             result.push_back(StatReadSVG(stat_query, svg_doc));
+        }
+
+        if (stat_query.AsDict().at("type"s) == "Route"s) {
+            result.push_back(StatReadRoute(stat_query, catalogue, router));
         }
     }
     return Document(result);

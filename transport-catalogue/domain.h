@@ -2,6 +2,7 @@
 
 #include "geo.h"
 #include "svg.h"
+#include "graph.h"
 
 #include <vector>
 #include <string>
@@ -9,6 +10,7 @@
 struct Stop {
     std::string name;
     geo::Coordinates coordinates;
+    graph::VertexId id;
 };
 
 struct Bus {
@@ -36,4 +38,16 @@ struct RenderSettings {
     double underlayer_width;
 
     std::vector<svg::Color> color_palette;
+};
+
+struct RouteSettings {
+    int bus_wait_time;
+    double bus_velocity;
+};
+
+struct RouteStat {
+    const Bus* bus;
+    const Stop* stop_from;
+    int stop_count;
+    double travel_time;
 };

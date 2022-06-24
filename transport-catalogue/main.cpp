@@ -14,6 +14,10 @@ int main () {
     reader.LoadJSON(std::cin);
     reader.TransferDataToCatalogue(catalogue);
 
+    const RouteSettings route_settings = reader.ReadRoutingSettings();
+    graph::DirectedWeightedGraph catalogue_graph = catalogue.CreateGraph(route_settings);
+    graph::Router router(catalogue_graph);
+
     RenderSettings render_setting;
     reader.ReadRenderSettings(render_setting);
 
@@ -23,8 +27,8 @@ int main () {
     svg::Document document = map_renderer.CreateRoutesMap();
 
     std::string routes_map_str = map_renderer.ToString(document);
-    json::Document json_doc = reader.StatReadToJSON(catalogue, routes_map_str);
+    json::Document json_doc = reader.StatReadToJSON(catalogue, router, routes_map_str);
     json::Print(json_doc, std::cout);
-    
+
     return 0;
 }
