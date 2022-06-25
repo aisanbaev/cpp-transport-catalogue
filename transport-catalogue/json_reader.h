@@ -32,5 +32,5 @@ private:
     json::Dict StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue);
     json::Dict StatReadStop(const json::Node& stat_query, const TransportCatalogue& catalogue);
     json::Dict StatReadSVG(const json::Node& stat_query, const std::string& svg_doc);
-    json::Dict StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const graph::Router<double>& router, const std::vector<RouteStat>& routes);
+    json::Dict StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const TransportRouter& transport_router);
 };

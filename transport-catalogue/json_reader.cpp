@@ -210,22 +210,22 @@ json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& s
                     .Build().AsDict();
 }
 
-json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const graph::Router<double>& router, const vector<RouteStat>& routes) {
-    const RouteSettings route_settings = ReadRoutingSettings();
-
+json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const TransportRouter& transport_router) {
     graph::VertexId stop_from_id = catalogue.GetStopId(stat_query.AsDict().at("from"s).AsString());
     graph::VertexId stop_to_id = catalogue.GetStopId(stat_query.AsDict().at("to"s).AsString());
-    auto route_info = router.BuildRoute(stop_from_id, stop_to_id);
 
+    const auto route_info = transport_router.GetRouteInfo(stop_from_id, stop_to_id);
     Array items;
 
     if (route_info) {
+        const RouteSettings route_settings = ReadRoutingSettings();
+        double total_weight = 0;
 
-        for (int num_edge : (*route_info).edges) {
+        for (const auto& item_stat : *route_info) {
             Dict wait = json::Builder{}
                              .StartDict()
                                  .Key("type"s).Value("Wait"s)
-                                 .Key("stop_name"s).Value(routes[num_edge].stop_from->name)
+                                 .Key("stop_name"s).Value(item_stat.stop_from->name)
                                  .Key("time"s).Value(route_settings.bus_wait_time)
                              .EndDict()
                              .Build().AsDict();
@@ -233,20 +233,21 @@ json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const Transpo
             Dict trip = json::Builder{}
                              .StartDict()
                                  .Key("type"s).Value("Bus"s)
-                                 .Key("bus"s).Value(routes[num_edge].bus->name)
-                                 .Key("span_count"s).Value(routes[num_edge].stop_count)
-                                 .Key("time"s).Value(routes[num_edge].travel_time)
+                                 .Key("bus"s).Value(item_stat.bus->name)
+                                 .Key("span_count"s).Value(item_stat.stop_count)
+                                 .Key("time"s).Value(item_stat.travel_time)
                              .EndDict()
                              .Build().AsDict();
 
             items.push_back(wait);
             items.push_back(trip);
+            total_weight += route_settings.bus_wait_time + item_stat.travel_time;
         }
 
         return json::Builder{}
                     .StartDict()
                         .Key("request_id"s).Value(stat_query.AsDict().at("id"s).AsInt())
-                        .Key("total_time"s).Value((*route_info).weight)
+                        .Key("total_time"s).Value(total_weight)
                         .Key("items"s).Value(items)
                     .EndDict()
                     .Build().AsDict();
@@ -261,13 +262,9 @@ json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const Transpo
                     .Build().AsDict();
 
     }
-
 }
 
 json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const TransportRouter& transport_router, const std::string& svg_doc) {
-    graph::Router<double> router(transport_router.GetTransportGraph());
-    const vector<RouteStat>& stat_routes = transport_router.GetStatRoutes();
-
     Array result;
     for (const auto& stat_query : GetStatQueries()) {
 
@@ -284,7 +281,7 @@ json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const T
         }
 
         if (stat_query.AsDict().at("type"s) == "Route"s) {
-            result.push_back(StatReadRoute(stat_query, catalogue, router, stat_routes));
+            result.push_back(StatReadRoute(stat_query, catalogue, transport_router));
         }
     }
     return Document(result);
