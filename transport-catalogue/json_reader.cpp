@@ -5,6 +5,10 @@
 using namespace std;
 using namespace json;
 
+ReaderJSON::ReaderJSON (std::istream& is) {
+    json_document_ = Load(is);
+}
+
 const Array& ReaderJSON::GetBaseQueries() const {
     return json_document_.GetRoot().AsDict().at("base_requests"s).AsArray();
 }
@@ -19,10 +23,6 @@ const Dict& ReaderJSON::GetRenderSettings() const {
 
 const Dict& ReaderJSON::GetRoutingSettings() const {
     return json_document_.GetRoot().AsDict().at("routing_settings"s).AsDict();
-}
-
-void ReaderJSON::LoadJSON (std::istream& is) {
-    json_document_ = Load(is);
 }
 
 RouteSettings ReaderJSON::ReadRoutingSettings() const {
@@ -147,6 +147,8 @@ void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
             catalogue.SetDistance(stop_depart, stop_arrival, distance.AsInt());
         }
     }
+
+    catalogue.SetRouteSettings(ReadRoutingSettings());
 }
 
 json::Dict ReaderJSON::StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue) {
@@ -208,9 +210,8 @@ json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& s
                     .Build().AsDict();
 }
 
-json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const graph::Router<double>& router) {
+json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const graph::Router<double>& router, const vector<RouteStat>& routes) {
     const RouteSettings route_settings = ReadRoutingSettings();
-    const auto& routes = catalogue.GetStatRoutes();
 
     graph::VertexId stop_from_id = catalogue.GetStopId(stat_query.AsDict().at("from"s).AsString());
     graph::VertexId stop_to_id = catalogue.GetStopId(stat_query.AsDict().at("to"s).AsString());
@@ -263,7 +264,10 @@ json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const Transpo
 
 }
 
-json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const graph::Router<double>& router, const string& svg_doc) {
+json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const TransportRouter& transport_router, const std::string& svg_doc) {
+    graph::Router<double> router(transport_router.GetTransportGraph());
+    const vector<RouteStat>& stat_routes = transport_router.GetStatRoutes();
+
     Array result;
     for (const auto& stat_query : GetStatQueries()) {
 
@@ -280,7 +284,7 @@ json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const g
         }
 
         if (stat_query.AsDict().at("type"s) == "Route"s) {
-            result.push_back(StatReadRoute(stat_query, catalogue, router));
+            result.push_back(StatReadRoute(stat_query, catalogue, router, stat_routes));
         }
     }
     return Document(result);

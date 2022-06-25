@@ -5,18 +5,15 @@
 #include "json_reader.h"
 #include "map_renderer.h"
 #include "json_builder.h"
+#include "transport_router.h"
 
 int main () {
 
-    ReaderJSON reader;
+    ReaderJSON reader(std::cin);
     TransportCatalogue catalogue;
-
-    reader.LoadJSON(std::cin);
     reader.TransferDataToCatalogue(catalogue);
 
-    const RouteSettings route_settings = reader.ReadRoutingSettings();
-    graph::DirectedWeightedGraph catalogue_graph = catalogue.CreateGraph(route_settings);
-    graph::Router router(catalogue_graph);
+    TransportRouter router(catalogue);
 
     RenderSettings render_setting;
     reader.ReadRenderSettings(render_setting);

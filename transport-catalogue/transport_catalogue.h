@@ -1,3 +1,5 @@
+#pragma once
+
 #include <unordered_map>
 #include <set>
 #include <string>
@@ -24,6 +26,7 @@ struct BusInfo {
 };
 
 class TransportCatalogue {
+    friend class TransportRouter;
 public:
     void AddStop(const std::string& stop_name, const geo::Coordinates& coordinates);
     void AddBus(const std::string& bus_name, const std::vector<std::string_view>& stop_names, int num_stops);
@@ -34,15 +37,16 @@ public:
     StopInfo GetStopInfo(const std::string& stop_name) const;
     BusInfo GetBusInfo(const std::string& bus_name) const;
 
-    graph::DirectedWeightedGraph<double> CreateGraph(const RouteSettings& route_settings);
+    void SetRouteSettings(RouteSettings route_settings);
+
     graph::VertexId GetStopId(std::string_view stop_name) const;
 
     const std::unordered_map<std::string_view, const Bus*>& GetAllBusesInfo() const;
-    const std::vector<RouteStat>& GetStatRoutes() const;
 
 private:
     graph::VertexId stop_id_ = 0;
-    std::vector<RouteStat> routes_;
+
+    RouteSettings route_settings_;
 
     std::deque<Stop> stops_;
     std::deque<Bus> buses_;
