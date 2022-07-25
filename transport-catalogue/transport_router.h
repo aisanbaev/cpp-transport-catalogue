@@ -6,7 +6,7 @@ class TransportRouter {
 public:
     TransportRouter(const TransportCatalogue& catalogue);
 
-    const std::optional<std::vector<RouteStat>> GetRouteInfo(graph::VertexId stop_from_id, graph::VertexId stop_to_id) const;
+    const std::optional<std::vector<RouteStat>> GetRouteInfo(const std::string_view stop_departure, const std::string_view stop_arrival) const;
 
 private:
     const TransportCatalogue& catalogue_;

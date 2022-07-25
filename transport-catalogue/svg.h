@@ -130,13 +130,11 @@ private:
 
 class ObjectContainer {
 public:
-    // Метод Add добавляет в svg-документ любой объект-наследник svg::Object
     template <typename Obj>
     void Add(Obj obj) {
         AddPtr(std::make_unique<Obj>(std::move(obj)));
     }
 
-    // Добавляет в svg-документ объект-наследник svg::Object
     virtual void AddPtr(std::unique_ptr<Object>&& obj) = 0;
 
     std::vector<std::unique_ptr<Object>>& GetObjects();
@@ -203,8 +201,6 @@ protected:
 
 private:
     Owner& AsOwner() {
-        // static_cast безопасно преобразует *this к Owner&,
-        // если класс Owner — наследник PathProps
         return static_cast<Owner&>(*this);
     }
 
@@ -215,10 +211,6 @@ private:
     std::optional<StrokeLineJoin> stroke_line_join_;
 };
 
-/*
- * Класс Circle моделирует элемент <circle> для отображения круга
- * https://developer.mozilla.org/en-US/docs/Web/SVG/Element/circle
- */
 class Circle final : public Object, public PathProps<Circle> {
 public:
     Circle& SetCenter(Point center);
@@ -231,13 +223,8 @@ private:
     double radius_ = 1.0;
 };
 
-/*
- * Класс Polyline моделирует элемент <polyline> для отображения ломаных линий
- * https://developer.mozilla.org/en-US/docs/Web/SVG/Element/polyline
- */
 class Polyline final : public Object, public PathProps<Polyline> {
 public:
-    // Добавляет очередную вершину к ломаной линии
     Polyline& AddPoint(Point point);
 
 private:
@@ -246,28 +233,13 @@ private:
     std::vector<Point> points_;
 };
 
-/*
- * Класс Text моделирует элемент <text> для отображения текста
- * https://developer.mozilla.org/en-US/docs/Web/SVG/Element/text
- */
 class Text final : public Object, public PathProps<Text> {
 public:
-    // Задаёт координаты опорной точки (атрибуты x и y)
     Text& SetPosition(Point pos);
-
-    // Задаёт смещение относительно опорной точки (атрибуты dx, dy)
     Text& SetOffset(Point offset);
-
-    // Задаёт размеры шрифта (атрибут font-size)
     Text& SetFontSize(uint32_t size);
-
-    // Задаёт название шрифта (атрибут font-family)
     Text& SetFontFamily(std::string font_family);
-
-    // Задаёт толщину шрифта (атрибут font-weight)
     Text& SetFontWeight(std::string font_weight);
-
-    // Задаёт текстовое содержимое объекта (отображается внутри тега text)
     Text& SetData(std::string data);
 
 private:

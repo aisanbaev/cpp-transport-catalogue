@@ -15,17 +15,15 @@ class SphereProjector;
 
 class MapRenderer {
 public:
-    MapRenderer(const RenderSettings& render_setting, const std::unordered_map<std::string_view, const Bus*>& busname_to_bus)
-        : render_setting_(render_setting)
-        , busname_to_bus_(busname_to_bus) {
-    }
+    MapRenderer(const RenderSettings& render_settings, const std::unordered_map<std::string_view, const Bus*>& busname_to_bus);
 
-    svg::Document CreateRoutesMap();
-    std::string ToString(const svg::Document& doc);
+    const svg::Document& GetDocumentSVG() const;
+    std::string GetMapAsString() const;
 
 private:
-    RenderSettings render_setting_;
-    const int palette_size_ = render_setting_.color_palette.size();
+    svg::Document document_;
+    RenderSettings render_settings_;
+    const int palette_size_ = render_settings_.color_palette.size();
 
     const std::unordered_map<std::string_view, const Bus*>& busname_to_bus_;
 
@@ -33,10 +31,12 @@ private:
     std::map<std::string_view, geo::Coordinates> stopname_to_coord_;
     std::vector<geo::Coordinates> geo_coords_;
 
-    void DrawBusRoutes(svg::Document& doc, const SphereProjector& proj);
-    void DrawRouteNames(svg::Document& doc, const SphereProjector& proj);
-    void DrawStops(svg::Document& doc, const SphereProjector& proj);
-    void DrawStopNames(svg::Document& doc, const SphereProjector& proj);
+    void DrawBusRoutes(const SphereProjector& proj);
+    void DrawRouteNames(const SphereProjector& proj);
+    void DrawStops(const SphereProjector& proj);
+    void DrawStopNames(const SphereProjector& proj);
+
+    void CreateDocumentSVG();
 };
 
 inline const double EPSILON = 1e-6;

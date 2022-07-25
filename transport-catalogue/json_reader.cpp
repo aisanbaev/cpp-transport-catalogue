@@ -9,29 +9,43 @@ ReaderJSON::ReaderJSON (std::istream& is) {
     json_document_ = Load(is);
 }
 
-const Array& ReaderJSON::GetBaseQueries() const {
+const Array& ReaderJSON::GetBaseRequests() const {
     return json_document_.GetRoot().AsDict().at("base_requests"s).AsArray();
 }
 
-const Array& ReaderJSON::GetStatQueries() const {
+RouteSettings ReaderJSON::GetRoutingSettings() const {
+    if (ReadRoutingSettings().empty()) {
+        return {};
+    }
+
+    return {ReadRoutingSettings().at("bus_wait_time"s).AsInt(),
+            ReadRoutingSettings().at("bus_velocity"s).AsDouble()};
+}
+
+const Array& ReaderJSON::ReadStatRequests() const {
     return json_document_.GetRoot().AsDict().at("stat_requests"s).AsArray();
 }
 
-const Dict& ReaderJSON::GetRenderSettings() const {
+const json::Dict& ReaderJSON::ReadRenderSettings() const {
     return json_document_.GetRoot().AsDict().at("render_settings"s).AsDict();
 }
 
-const Dict& ReaderJSON::GetRoutingSettings() const {
+const json::Dict& ReaderJSON::GetSerializationSettings() const {
+    return json_document_.GetRoot().AsDict().at("serialization_settings").AsDict();
+}
+
+const Dict& ReaderJSON::ReadRoutingSettings() const {
+    static Dict empty_dict{};
+    if (!json_document_.GetRoot().AsDict().count("routing_settings"s)) {
+        return empty_dict;
+    }
+
     return json_document_.GetRoot().AsDict().at("routing_settings"s).AsDict();
 }
 
-RouteSettings ReaderJSON::ReadRoutingSettings() const {
-    return {GetRoutingSettings().at("bus_wait_time"s).AsInt(),
-            GetRoutingSettings().at("bus_velocity"s).AsDouble()};
-}
-
-void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
-    const Dict& setting_map = GetRenderSettings();
+RenderSettings ReaderJSON::GetRenderSettings() const {
+    RenderSettings render_set;
+    const Dict& setting_map = ReadRenderSettings();
 
     render_set.width = setting_map.at("width"s).AsDouble();
     render_set.height = setting_map.at("height"s).AsDouble();
@@ -54,7 +68,7 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
 
     } else {
         const int rgb_size = setting_map.at("underlayer_color"s).AsArray().size();
-        const auto rgb_array = setting_map.at("underlayer_color"s).AsArray();
+        const auto& rgb_array = setting_map.at("underlayer_color"s).AsArray();
 
         if (rgb_size == 3) {
             svg::Rgb rgb_color;
@@ -81,7 +95,7 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
 
         } else {
             const int rgb_size = color.AsArray().size();
-            const auto rgb_array = color.AsArray();
+            const auto& rgb_array = color.AsArray();
 
             if (rgb_size == 3) {
                 svg::Rgb rgb_color;
@@ -100,55 +114,8 @@ void ReaderJSON::ReadRenderSettings(RenderSettings& render_set) {
             }
         }
     }
-}
 
-void ReaderJSON::TransferDataToCatalogue(TransportCatalogue& catalogue) {
-
-    for (const auto& stop_query : GetBaseQueries()) {
-        if (stop_query.AsDict().at("type"s) != "Stop"s) {
-            continue;
-        }
-        string stop_name = stop_query.AsDict().at("name"s).AsString();
-        double lat = stop_query.AsDict().at("latitude"s).AsDouble();
-        double lng = stop_query.AsDict().at("longitude"s).AsDouble();
-        catalogue.AddStop(stop_name, {lat,lng});
-    }
-
-    for (const auto& bus_query : GetBaseQueries()) {
-        if (bus_query.AsDict().at("type"s) != "Bus"s) {
-            continue;
-        }
-        string bus_name = bus_query.AsDict().at("name"s).AsString();
-        const Array& stops = bus_query.AsDict().at("stops"s).AsArray();
-        vector<string_view> stop_names;
-
-        for (const auto& node : stops) {
-            stop_names.push_back(node.AsString());
-        }
-        int num_stops = stop_names.size();
-
-        if (!bus_query.AsDict().at("is_roundtrip"s).AsBool()) {
-            stop_names.reserve(2 * stop_names.size());
-            stop_names.insert(stop_names.end(), stop_names.rbegin() + 1, stop_names.rend());
-        }
-
-        catalogue.AddBus(bus_name, stop_names, num_stops);
-    }
-
-    for (const auto& stop_query : GetBaseQueries()) {
-        if (stop_query.AsDict().at("type"s) != "Stop"s) {
-            continue;
-        }
-
-        string stop_depart = stop_query.AsDict().at("name"s).AsString();
-        const Dict& name_to_dist = stop_query.AsDict().at("road_distances"s).AsDict();
-
-        for (const auto& [stop_arrival, distance] : name_to_dist) {
-            catalogue.SetDistance(stop_depart, stop_arrival, distance.AsInt());
-        }
-    }
-
-    catalogue.SetRouteSettings(ReadRoutingSettings());
+    return render_set;
 }
 
 json::Dict ReaderJSON::StatReadBus(const json::Node& stat_query, const TransportCatalogue& catalogue) {
@@ -210,15 +177,15 @@ json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& s
                     .Build().AsDict();
 }
 
-json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportCatalogue& catalogue, const TransportRouter& transport_router) {
-    graph::VertexId stop_from_id = catalogue.GetStopId(stat_query.AsDict().at("from"s).AsString());
-    graph::VertexId stop_to_id = catalogue.GetStopId(stat_query.AsDict().at("to"s).AsString());
+json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query,const TransportCatalogue& catalogue, const TransportRouter& transport_router) {
+    const string_view stop_from = stat_query.AsDict().at("from"s).AsString();
+    const string_view stop_to = stat_query.AsDict().at("to"s).AsString();
 
-    const auto route_info = transport_router.GetRouteInfo(stop_from_id, stop_to_id);
+    const auto route_info = transport_router.GetRouteInfo(stop_from, stop_to);
     Array items;
 
     if (route_info) {
-        const RouteSettings route_settings = ReadRoutingSettings();
+        const RouteSettings route_settings = std::move(catalogue.GetRoutingSettings());
         double total_weight = 0;
 
         for (const auto& item_stat : *route_info) {
@@ -266,7 +233,7 @@ json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const Transpo
 
 json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const TransportRouter& transport_router, const std::string& svg_doc) {
     Array result;
-    for (const auto& stat_query : GetStatQueries()) {
+    for (const auto& stat_query : ReadStatRequests()) {
 
         if (stat_query.AsDict().at("type"s) == "Stop"s) {
             result.push_back(StatReadBus(stat_query, catalogue));
@@ -286,4 +253,25 @@ json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const T
     }
     return Document(result);
 }
+
+json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const std::string& svg_doc) {
+    Array result;
+    for (const auto& stat_query : ReadStatRequests()) {
+
+        if (stat_query.AsDict().at("type"s) == "Stop"s) {
+            result.push_back(StatReadBus(stat_query, catalogue));
+        }
+
+        if (stat_query.AsDict().at("type"s) == "Bus"s) {
+            result.push_back(StatReadStop(stat_query, catalogue));
+        }
+
+        if (stat_query.AsDict().at("type"s) == "Map"s) {
+            result.push_back(StatReadSVG(stat_query, svg_doc));
+        }
+
+    }
+    return Document(result);
+}
+
 

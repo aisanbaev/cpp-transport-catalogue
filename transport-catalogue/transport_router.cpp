@@ -6,7 +6,10 @@ TransportRouter::TransportRouter(const TransportCatalogue& catalogue)
     , router_(CreateGraph()) {
 }
 
-const std::optional<std::vector<RouteStat>> TransportRouter::GetRouteInfo(graph::VertexId stop_from_id, graph::VertexId stop_to_id) const {
+const std::optional<std::vector<RouteStat>> TransportRouter::GetRouteInfo(const std::string_view stop_departure, const std::string_view stop_arrival) const {
+    graph::VertexId stop_from_id = catalogue_.GetStopId(stop_departure);
+    graph::VertexId stop_to_id = catalogue_.GetStopId(stop_arrival);
+
     auto route_info = router_.BuildRoute(stop_from_id, stop_to_id);
     std::vector<RouteStat> result;
 

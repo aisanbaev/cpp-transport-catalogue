@@ -1,31 +1,42 @@
 #include <fstream>
 #include <iostream>
 
-#include "geo.h"
 #include "json_reader.h"
-#include "map_renderer.h"
-#include "json_builder.h"
-#include "transport_router.h"
 
-int main () {
+using namespace std::literals;
 
-    ReaderJSON reader(std::cin);
-    TransportCatalogue catalogue;
-    reader.TransferDataToCatalogue(catalogue);
-
-    TransportRouter router(catalogue);
-
-    RenderSettings render_setting;
-    reader.ReadRenderSettings(render_setting);
-
-    auto all_routes = catalogue.GetAllBusesInfo();
-    MapRenderer map_renderer(render_setting, all_routes);
-
-    svg::Document document = map_renderer.CreateRoutesMap();
-
-    std::string routes_map_str = map_renderer.ToString(document);
-    json::Document json_doc = reader.StatReadToJSON(catalogue, router, routes_map_str);
-    json::Print(json_doc, std::cout);
-
-    return 0;
+void PrintUsage(std::ostream& stream = std::cerr) {
+    stream << "Usage: transport_catalogue [make_base|process_requests]\n"sv;
 }
+
+int main(int argc, char* argv[]) {
+    if (argc != 2) {
+        PrintUsage();
+        return 1;
+    }
+
+    const std::string_view mode(argv[1]);
+
+    bool make_base = true;
+
+    if (mode == "make_base"sv) {
+        ReaderJSON reader(std::cin);
+        TransportCatalogue catalogue(reader, make_base);
+
+    } else if (mode == "process_requests"sv) {
+        ReaderJSON reader(std::cin);
+        TransportCatalogue catalogue(reader, !make_base);
+        TransportRouter router(catalogue);
+
+        MapRenderer map_renderer(catalogue.GetRenderSettings(), catalogue.GetAllBuses());
+        json::Document json_document = reader.StatReadToJSON(catalogue, router, std::move(map_renderer.GetMapAsString()));
+        json::Print(json_document, std::cout);
+
+    } else {
+        PrintUsage();
+        return 1;
+    }
+}
+
+
+
