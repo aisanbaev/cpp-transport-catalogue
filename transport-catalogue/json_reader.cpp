@@ -34,6 +34,10 @@ const json::Dict& ReaderJSON::GetSerializationSettings() const {
     return json_document_.GetRoot().AsDict().at("serialization_settings").AsDict();
 }
 
+const std::string& ReaderJSON::GetFileName() const {
+    return GetSerializationSettings().at("file"s).AsString();
+}
+
 const Dict& ReaderJSON::ReadRoutingSettings() const {
     static Dict empty_dict{};
     if (!json_document_.GetRoot().AsDict().count("routing_settings"s)) {
@@ -177,7 +181,7 @@ json::Dict ReaderJSON::StatReadSVG(const json::Node& stat_query, const string& s
                     .Build().AsDict();
 }
 
-json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query,const TransportCatalogue& catalogue, const TransportRouter& transport_router) {
+json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query, const TransportRouter& transport_router) {
     const string_view stop_from = stat_query.AsDict().at("from"s).AsString();
     const string_view stop_to = stat_query.AsDict().at("to"s).AsString();
 
@@ -185,7 +189,7 @@ json::Dict ReaderJSON::StatReadRoute(const json::Node& stat_query,const Transpor
     Array items;
 
     if (route_info) {
-        const RouteSettings route_settings = std::move(catalogue.GetRoutingSettings());
+        const RouteSettings route_settings = std::move(transport_router.GetRouteSettings());
         double total_weight = 0;
 
         for (const auto& item_stat : *route_info) {
@@ -248,30 +252,11 @@ json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const T
         }
 
         if (stat_query.AsDict().at("type"s) == "Route"s) {
-            result.push_back(StatReadRoute(stat_query, catalogue, transport_router));
+            result.push_back(StatReadRoute(stat_query, transport_router));
         }
     }
     return Document(result);
 }
 
-json::Document ReaderJSON::StatReadToJSON(TransportCatalogue& catalogue, const std::string& svg_doc) {
-    Array result;
-    for (const auto& stat_query : ReadStatRequests()) {
-
-        if (stat_query.AsDict().at("type"s) == "Stop"s) {
-            result.push_back(StatReadBus(stat_query, catalogue));
-        }
-
-        if (stat_query.AsDict().at("type"s) == "Bus"s) {
-            result.push_back(StatReadStop(stat_query, catalogue));
-        }
-
-        if (stat_query.AsDict().at("type"s) == "Map"s) {
-            result.push_back(StatReadSVG(stat_query, svg_doc));
-        }
-
-    }
-    return Document(result);
-}
 
 

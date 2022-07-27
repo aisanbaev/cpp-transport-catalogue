@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <string_view>
 
 #include "json_reader.h"
 
@@ -17,17 +18,23 @@ int main(int argc, char* argv[]) {
 
     const std::string_view mode(argv[1]);
 
-    bool make_base = true;
-
     if (mode == "make_base"sv) {
+
         ReaderJSON reader(std::cin);
-        TransportCatalogue catalogue(reader, make_base);
+        TransportCatalogue catalogue(reader);
+
+        CatalogueSerializer data_base;
+        data_base.SerializeTransportCatalogue(catalogue);
+        data_base.SerializeRenderSettings(std::move(reader.GetRenderSettings()));
+        data_base.SerializeRouteSettings(std::move(reader.GetRoutingSettings()));
+        data_base.SaveTo(reader.GetFileName());
 
     } else if (mode == "process_requests"sv) {
-        ReaderJSON reader(std::cin);
-        TransportCatalogue catalogue(reader, !make_base);
-        TransportRouter router(catalogue);
 
+        ReaderJSON reader(std::cin);
+        CatalogueDeserializer data_base(reader.GetFileName());
+        TransportCatalogue catalogue(data_base);
+        TransportRouter router(catalogue);
         MapRenderer map_renderer(catalogue.GetRenderSettings(), catalogue.GetAllBuses());
         json::Document json_document = reader.StatReadToJSON(catalogue, router, std::move(map_renderer.GetMapAsString()));
         json::Print(json_document, std::cout);
@@ -37,6 +44,3 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 }
-
-
-

@@ -1,29 +1,51 @@
 #include "serialization.h"
+#include "transport_catalogue.h"
 
 #include <fstream>
 
-void CatalogueSerializer::SerializeStop(const std::string& name, uint32_t id, double lat, double lng) {
-    catalogue_serialize::Stop stop;
-    stop.set_name(name);
-    stop.set_id(id);
-    stop.set_lat(lat);
-    stop.set_lng(lng);
+void CatalogueSerializer::SerializeTransportCatalogue(const TransportCatalogue& catalogue) {
 
-    *stop_list_.add_stops() = stop;
+    for (const Stop& stop : catalogue.GetStops()) {
+        SerializeStop(stop);
+        SerializeDistances(catalogue, stop);
+    }
+
+    for (const Bus& bus : catalogue.GetBuses()) {
+        SerializeBus(bus);
+    }
 }
 
-void CatalogueSerializer::SerializationBus(const std::string& name, const std::vector<uint32_t>& id_stops, uint32_t num_stops) {
-    catalogue_serialize::Bus bus;
-    bus.set_name(name);
-    *bus.mutable_id_stops() = {id_stops.begin(), id_stops.end()};
-    bus.set_num_stops(num_stops);
-
-    *bus_list_.add_buses() = bus;
+void CatalogueSerializer::SerializeStop(const Stop& stop) {
+    catalogue_serialize::Stop serial_stop;
+    serial_stop.set_name(stop.name);
+    serial_stop.set_id(stop.id);
+    serial_stop.set_lat(stop.coordinates.lat);
+    serial_stop.set_lng(stop.coordinates.lng);
+    *base_.add_stops() = std::move(serial_stop);
 }
 
-void CatalogueSerializer::SerializeDistances(uint32_t stop_depart_id, uint32_t stop_arrival_id, uint32_t distance) {
-    catalogue_serialize::Stop& stop = *stop_list_.mutable_stops(stop_depart_id);
-    stop.mutable_stop_arrival_to_dist()->insert({stop_arrival_id, distance});
+void CatalogueSerializer::SerializeBus(const Bus& bus) {
+    catalogue_serialize::Bus serial_bus;
+    serial_bus.set_name(bus.name);
+    serial_bus.set_num_stops(bus.number_stops);
+
+    for (const Stop* stop: bus.stops) {
+        serial_bus.add_id_stops(stop->id);
+    }
+
+    *base_.add_buses() = std::move(serial_bus);
+}
+
+void CatalogueSerializer::SerializeDistances(const TransportCatalogue& catalogue, const Stop& stop_depart) {
+    catalogue_serialize::Stop& serial_stop = *base_.mutable_stops(stop_depart.id);
+
+    for (Stop* stop_arrival : stop_depart.nearby_stops) {
+        int distance = catalogue.GetDistance(stop_depart.name, stop_arrival->name);
+        catalogue_serialize::Distance dist_to_stop;
+        dist_to_stop.set_stop_id(stop_arrival->id);
+        dist_to_stop.set_distance(distance);
+        *serial_stop.add_distances() = std::move(dist_to_stop);
+    }
 }
 
 void CatalogueSerializer::SerializeRouteSettings(RouteSettings route_set) {
@@ -54,37 +76,35 @@ void CatalogueSerializer::SerializeRenderSettings(RenderSettings render_set) {
     }
 }
 
-catalogue_serialize::RenderSettings_Color CatalogueSerializer::SerializeColor(const svg::Color& color) {
-    catalogue_serialize::RenderSettings_Color result;
+catalogue_serialize::Color CatalogueSerializer::SerializeColor(const svg::Color& svg_color) {
+    catalogue_serialize::Color color;
 
-    if (std::holds_alternative<std::string>(color)) {
-        result.set_id(1);
-        result.set_color_name(std::get<std::string>(color));
+    if (std::holds_alternative<std::string>(svg_color)) {
+        color.set_name(std::get<std::string>(svg_color));
 
-    } else if (std::holds_alternative<svg::Rgb>(color)) {
-        result.set_id(2);
-        result.set_r(std::get<svg::Rgb>(color).red);
-        result.set_g(std::get<svg::Rgb>(color).green);
-        result.set_b(std::get<svg::Rgb>(color).blue);
+    } else if (std::holds_alternative<svg::Rgb>(svg_color)) {
+        color.mutable_rgb()->set_red(std::get<svg::Rgb>(svg_color).red);
+        color.mutable_rgb()->set_green(std::get<svg::Rgb>(svg_color).green);
+        color.mutable_rgb()->set_blue(std::get<svg::Rgb>(svg_color).blue);
 
-    } else if (std::holds_alternative<svg::Rgba>(color)) {
-        result.set_id(3);
-        result.set_r(std::get<svg::Rgba>(color).red);
-        result.set_g(std::get<svg::Rgba>(color).green);
-        result.set_b(std::get<svg::Rgba>(color).blue);
-        result.set_a(std::get<svg::Rgba>(color).opacity);
+    } else if (std::holds_alternative<svg::Rgba>(svg_color)) {
+        color.mutable_rgba()->set_red(std::get<svg::Rgba>(svg_color).red);
+        color.mutable_rgba()->set_green(std::get<svg::Rgba>(svg_color).green);
+        color.mutable_rgba()->set_blue(std::get<svg::Rgba>(svg_color).blue);
+        color.mutable_rgba()->set_opacity(std::get<svg::Rgba>(svg_color).opacity);
     }
 
-    return result;
+    return color;
 }
 
-void CatalogueSerializer::SaveTo(std::ostream& output) const {
+void CatalogueSerializer::SaveTo(const std::string& file_name) const {
     catalogue_serialize::TransportCatalogue db;
-    *db.mutable_stop_list() = std::move(stop_list_);
-    *db.mutable_bus_list() = std::move(bus_list_);
+    *db.mutable_base() = std::move(base_);
     *db.mutable_render_settings() = std::move(render_settings_);
     *db.mutable_route_settings() = std::move(routing_settings_);
-    db.SerializeToOstream(&output);
+
+    std::ofstream out(file_name, std::ios::binary);
+    db.SerializeToOstream(&out);
 }
 
 CatalogueDeserializer::CatalogueDeserializer(const std::string& file_name) {
@@ -94,19 +114,15 @@ CatalogueDeserializer::CatalogueDeserializer(const std::string& file_name) {
     DeserializeRoutingSettings();
 }
 
-const catalogue_serialize::StopList& CatalogueDeserializer::GetStopList() const {
-    return db.stop_list();
+const catalogue_serialize::TransportBase& CatalogueDeserializer::GetTransportBase() const {
+    return db.base();
 }
 
-const catalogue_serialize::BusList& CatalogueDeserializer::GetBusList() const {
-    return db.bus_list();
-}
-
-RenderSettings CatalogueDeserializer::GetRenderSettings() {
+RenderSettings CatalogueDeserializer::GetRenderSettings() const {
     return render_settings_;
 }
 
-RouteSettings CatalogueDeserializer::GetRoutingSettings() {
+RouteSettings CatalogueDeserializer::GetRoutingSettings() const {
     return routing_settings_;
 }
 
@@ -132,30 +148,30 @@ void CatalogueDeserializer::DeserializeRenderSetting() {
     render_settings_.underlayer_color = std::move(DeserializeColor(db_rs.underlayer_color()));
     render_settings_.underlayer_width = db_rs.underlayer_width();
 
-    for (const catalogue_serialize::RenderSettings_Color& color : db_rs.color_palette()) {
+    for (const catalogue_serialize::Color& color : db_rs.color_palette()) {
         render_settings_.color_palette.push_back(std::move(DeserializeColor(color)));
     }
 }
 
-svg::Color CatalogueDeserializer::DeserializeColor(const catalogue_serialize::RenderSettings_Color& color) {
+svg::Color CatalogueDeserializer::DeserializeColor(const catalogue_serialize::Color& color) {
     svg::Color result;
 
-    if (color.id() == 1) {
-        result = color.color_name();
+    if (color.has_name()) {
+        result = color.name();
 
-    } else if (color.id() == 2) {
+    } else if (color.has_rgb()) {
         result = svg::Rgb{
-            static_cast<uint8_t>(color.r()),
-            static_cast<uint8_t>(color.g()),
-            static_cast<uint8_t>(color.b())
+            static_cast<uint8_t>(color.rgb().red()),
+            static_cast<uint8_t>(color.rgb().green()),
+            static_cast<uint8_t>(color.rgb().blue())
         };
 
-    } else if (color.id() == 3) {
+    } else if (color.has_rgba()) {
         result = svg::Rgba{
-            static_cast<uint8_t>(color.r()),
-            static_cast<uint8_t>(color.g()),
-            static_cast<uint8_t>(color.b()),
-            color.a()
+            static_cast<uint8_t>(color.rgba().red()),
+            static_cast<uint8_t>(color.rgba().green()),
+            static_cast<uint8_t>(color.rgba().blue()),
+            color.rgba().opacity()
         };
     }
 

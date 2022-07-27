@@ -56,3 +56,7 @@ const graph::DirectedWeightedGraph<double>& TransportRouter::CreateGraph() {
     }
     return transport_graph_;
 }
+
+RouteSettings TransportRouter::GetRouteSettings() const {
+    return catalogue_.GetRoutingSettings();
+}

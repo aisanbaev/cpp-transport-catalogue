@@ -7,6 +7,7 @@ public:
     TransportRouter(const TransportCatalogue& catalogue);
 
     const std::optional<std::vector<RouteStat>> GetRouteInfo(const std::string_view stop_departure, const std::string_view stop_arrival) const;
+    RouteSettings GetRouteSettings() const;
 
 private:
     const TransportCatalogue& catalogue_;

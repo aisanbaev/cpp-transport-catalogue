@@ -7,16 +7,16 @@
 
 using namespace std;
 
-TransportCatalogue::TransportCatalogue(const ReaderJSON& reader, bool is_make_base) {
-    if (is_make_base) {
-        TransferDataFromJSON(reader);
-    } else {
-        TransferDataFromDatabase(reader);
-    }
+TransportCatalogue::TransportCatalogue(const ReaderJSON& reader) {
+    TransferDataFromJSON(reader);
+}
+
+TransportCatalogue::TransportCatalogue(const CatalogueDeserializer& data_base) {
+    TransferDataFromDatabase(data_base);
 }
 
 void TransportCatalogue::AddStop(const string& stop_name, const geo::Coordinates& coordinates) {
-    const Stop* stop = &stops_.emplace_back(Stop{stop_name, coordinates, stop_id_});
+    Stop* stop = &stops_.emplace_back(Stop{stop_name, coordinates, stop_id_});
 
     stopname_to_stop_[stop->name] = stop;
     stop_to_buses_[stop->name];
@@ -99,6 +99,14 @@ const std::unordered_map<std::string_view, const Bus*>& TransportCatalogue::GetA
     return busname_to_bus_;
 }
 
+const std::deque<Stop>& TransportCatalogue::GetStops() const {
+    return stops_;
+}
+
+const std::deque<Bus>& TransportCatalogue::GetBuses() const {
+    return buses_;
+}
+
 RenderSettings TransportCatalogue::GetRenderSettings() const {
     return render_settings_;
 }
@@ -107,7 +115,7 @@ RouteSettings TransportCatalogue::GetRoutingSettings() const {
     return route_settings_;
 }
 
-graph::VertexId TransportCatalogue::GetStopId(std::string_view stop_name) const {
+uint32_t TransportCatalogue::GetStopId(std::string_view stop_name) const {
     const Stop* stop_from = stopname_to_stop_.at(stop_name);
     return stop_from->id;
 }
@@ -122,7 +130,6 @@ void TransportCatalogue::TransferDataFromJSON(const ReaderJSON& reader) {
         double lat = stop_query.AsDict().at("latitude"s).AsDouble();
         double lng = stop_query.AsDict().at("longitude"s).AsDouble();
         AddStop(stop_name, {lat,lng});
-        catalogue_serializer_.SerializeStop(stop_name, stop_id_, lat, lng);
     }
 
     for (const auto& bus_query : reader.GetBaseRequests()) {
@@ -145,12 +152,6 @@ void TransportCatalogue::TransferDataFromJSON(const ReaderJSON& reader) {
         }
 
         AddBus(bus_name, stop_names, num_stops);
-
-        vector<uint32_t> id_stops;
-        for (const auto& stop_name : stop_names) {
-            id_stops.push_back(stopname_to_stop_.at(stop_name)->id);
-        }
-        catalogue_serializer_.SerializationBus(bus_name, id_stops, num_stops);
     }
 
     for (const auto& stop_query : reader.GetBaseRequests()) {
@@ -163,31 +164,21 @@ void TransportCatalogue::TransferDataFromJSON(const ReaderJSON& reader) {
 
         for (const auto& [stop_arrival, distance] : name_to_dist) {
             SetDistance(stop_depart, stop_arrival, distance.AsInt());
-            catalogue_serializer_.SerializeDistances(stopname_to_stop_.at(stop_depart)->id, stopname_to_stop_.at(stop_arrival)->id, distance.AsInt());
+            stopname_to_stop_.at(stop_depart)->nearby_stops.push_back(stopname_to_stop_.at(stop_arrival));
         }
     }
-
-    catalogue_serializer_.SerializeRenderSettings(std::move(reader.GetRenderSettings()));
-    catalogue_serializer_.SerializeRouteSettings(std::move(reader.GetRoutingSettings()));
-
-    const string& file_name = reader.GetSerializationSettings().at("file"s).AsString();
-    std::ofstream out(file_name, std::ios::binary);
-    catalogue_serializer_.SaveTo(out);
 }
 
-void TransportCatalogue::TransferDataFromDatabase(const ReaderJSON& reader) {
-    const string& file_name = reader.GetSerializationSettings().at("file"s).AsString();
-    CatalogueDeserializer data_base(file_name);
+void TransportCatalogue::TransferDataFromDatabase(const CatalogueDeserializer& data_base) {
 
-    for (const catalogue_serialize::Stop& stop : data_base.GetStopList().stops()) {
+    for (const catalogue_serialize::Stop& stop : data_base.GetTransportBase().stops()) {
         string stop_name = stop.name();
         double lat = stop.lat();
         double lng = stop.lng();
         AddStop(stop_name, {lat,lng});
     }
 
-    for (const catalogue_serialize::Bus& bus : data_base.GetBusList().buses()) {
-
+    for (const catalogue_serialize::Bus& bus : data_base.GetTransportBase().buses()) {
         string bus_name = bus.name();
         int num_stops = bus.num_stops();
 
@@ -199,12 +190,12 @@ void TransportCatalogue::TransferDataFromDatabase(const ReaderJSON& reader) {
         AddBus(bus_name, stop_names, num_stops);
     }
 
-    for (const catalogue_serialize::Stop& stop : data_base.GetStopList().stops()) {
+    for (const catalogue_serialize::Stop& stop : data_base.GetTransportBase().stops()) {
         string stop_depart = stop.name();
 
-        for (const auto& [stop_arrival_id, distance] : stop.stop_arrival_to_dist()) {
-            string stop_arrival = stop_id_to_stop_.at(stop_arrival_id)->name;
-            SetDistance(stop_depart, stop_arrival, distance);
+        for (const auto& dist_to_stop : stop.distances()) {
+            string stop_arrival = stop_id_to_stop_.at(dist_to_stop.stop_id())->name;
+            SetDistance(stop_depart, stop_arrival, dist_to_stop.distance());
         }
     }
 

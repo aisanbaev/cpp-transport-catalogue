@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package graph_serialize;
+
+message Edge {
+    uint32 from = 1;
+    uint32 to = 2;
+    double wight = 3;
+}
+
+message Edges {
+    repeated Edge edges = 1;
+}
+
+message IncidenceList {
+    repeated uint32 list = 1;
+}
+
+message IncidenceLists {
+    repeated IncidenceList lists = 1;
+}

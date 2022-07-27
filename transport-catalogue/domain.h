@@ -10,7 +10,8 @@
 struct Stop {
     std::string name;
     geo::Coordinates coordinates;
-    graph::VertexId id;
+    uint32_t id;
+    std::vector<Stop*> nearby_stops;
 };
 
 struct Bus {

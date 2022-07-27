@@ -14,10 +14,10 @@ public:
     ReaderJSON(std::istream& is);
 
     json::Document StatReadToJSON(TransportCatalogue& catalogue, const TransportRouter& transport_router, const std::string& svg_doc);
-    json::Document StatReadToJSON(TransportCatalogue& catalogue, const std::string& svg_doc);
 
     const json::Array& GetBaseRequests() const;
     const json::Dict& GetSerializationSettings() const;
+    const std::string& GetFileName() const;
     RenderSettings GetRenderSettings() const;
     RouteSettings GetRoutingSettings() const;
 
@@ -32,5 +32,4 @@ private:
     json::Dict StatReadStop(const json::Node& stat_query, const TransportCatalogue& catalogue);
     json::Dict StatReadSVG(const json::Node& stat_query, const std::string& svg_doc);
     json::Dict StatReadRoute(const json::Node& stat_query, const TransportRouter& transport_router);
-    json::Dict StatReadRoute(const json::Node& stat_query,const TransportCatalogue& catalogue, const TransportRouter& transport_router);
 };

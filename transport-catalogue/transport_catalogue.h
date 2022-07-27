@@ -31,7 +31,8 @@ class ReaderJSON;
 class TransportCatalogue {
     friend class TransportRouter;
 public:
-    TransportCatalogue(const ReaderJSON& reader, bool is_make_base);
+    explicit TransportCatalogue(const ReaderJSON& reader);
+    explicit TransportCatalogue(const CatalogueDeserializer& data_base);
 
     void AddStop(const std::string& stop_name, const geo::Coordinates& coordinates);
     void AddBus(const std::string& bus_name, const std::vector<std::string_view>& stop_names, int num_stops);
@@ -44,14 +45,18 @@ public:
 
     void SetRouteSettings(RouteSettings route_settings);
 
-    graph::VertexId GetStopId(std::string_view stop_name) const;
+    uint32_t GetStopId(std::string_view stop_name) const;
 
     const std::unordered_map<std::string_view, const Bus*>& GetAllBuses() const;
+
+    const std::deque<Stop>& GetStops() const;
+    const std::deque<Bus>& GetBuses() const;
+
     RenderSettings GetRenderSettings() const;
     RouteSettings GetRoutingSettings() const;
 
 private:
-    graph::VertexId stop_id_ = 0;
+    uint32_t stop_id_ = 0;
 
     RouteSettings route_settings_;
     RenderSettings render_settings_;
@@ -60,7 +65,7 @@ private:
     std::deque<Stop> stops_;
     std::deque<Bus> buses_;
 
-    std::unordered_map<std::string_view, const Stop*> stopname_to_stop_;
+    std::unordered_map<std::string_view, Stop*> stopname_to_stop_;
     std::unordered_map<std::string_view, const Bus*> busname_to_bus_;
     std::unordered_map<uint32_t, const Stop*> stop_id_to_stop_;
 
@@ -77,7 +82,7 @@ private:
     std::unordered_map<std::pair<const Stop*, const Stop*>, int, StopPairHasher> stop_ptr_pair_to_distance_;
 
     void TransferDataFromJSON(const ReaderJSON& reader);
-    void TransferDataFromDatabase(const ReaderJSON& reader);
+    void TransferDataFromDatabase(const CatalogueDeserializer& data_base);
 };
 
 
