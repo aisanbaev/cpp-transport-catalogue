@@ -127,7 +127,6 @@ Node LoadNull(std::istream& input) {
 Node LoadNumber(std::istream& input) {
     std::string parsed_num;
 
-    // Считывает в parsed_num очередной символ из input
     auto read_char = [&parsed_num, &input] {
         parsed_num += static_cast<char>(input.get());
         if (!input) {
@@ -135,7 +134,6 @@ Node LoadNumber(std::istream& input) {
         }
     };
 
-    // Считывает одну или более цифр в parsed_num из input
     auto read_digits = [&input, read_char] {
         if (!std::isdigit(input.peek())) {
             throw ParsingError("A digit is expected"s);
@@ -148,23 +146,21 @@ Node LoadNumber(std::istream& input) {
     if (input.peek() == '-') {
         read_char();
     }
-    // Парсим целую часть числа
+    
     if (input.peek() == '0') {
         read_char();
-        // После 0 в JSON не могут идти другие цифры
     } else {
         read_digits();
     }
 
     bool is_int = true;
-    // Парсим дробную часть числа
+    
     if (input.peek() == '.') {
         read_char();
         read_digits();
         is_int = false;
     }
 
-    // Парсим экспоненциальную часть числа
     if (int ch = input.peek(); ch == 'e' || ch == 'E') {
         read_char();
         if (ch = input.peek(); ch == '+' || ch == '-') {
@@ -176,12 +172,12 @@ Node LoadNumber(std::istream& input) {
 
     try {
         if (is_int) {
-            // Сначала пробуем преобразовать строку в int
+            // РЎРЅР°С‡Р°Р»Р° РїСЂРѕР±СѓРµРј РїСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ СЃС‚СЂРѕРєСѓ РІ int
             try {
                 return std::stoi(parsed_num);
             } catch (...) {
-                // В случае неудачи, например, при переполнении
-                // код ниже попробует преобразовать строку в double
+                // Р’ СЃР»СѓС‡Р°Рµ РЅРµСѓРґР°С‡Рё, РЅР°РїСЂРёРјРµСЂ, РїСЂРё РїРµСЂРµРїРѕР»РЅРµРЅРёРё
+                // РєРѕРґ РЅРёР¶Рµ РїРѕРїСЂРѕР±СѓРµС‚ РїСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ СЃС‚СЂРѕРєСѓ РІ double
             }
         }
         return std::stod(parsed_num);
@@ -203,12 +199,9 @@ Node LoadNode(std::istream& input) {
         case '"':
             return LoadString(input);
         case 't':
-            // Атрибут [[fallthrough]] (провалиться) ничего не делает, и является
-            // подсказкой компилятору и человеку, что здесь программист явно задумывал
-            // разрешить переход к инструкции следующей ветки case, а не случайно забыл
-            // написать break, return или throw.
-            // В данном случае, встретив t или f, переходим к попытке парсинга
-            // литералов true либо false
+            // РђС‚СЂРёР±СѓС‚ [[fallthrough]] РїРµСЂРµС…РѕРґ Рє РёРЅСЃС‚СЂСѓРєС†РёРё СЃР»РµРґСѓСЋС‰РµР№ РІРµС‚РєРё case
+            // Р’СЃС‚СЂРµС‚РёРІ t РёР»Рё f, РїРµСЂРµС…РѕРґРёРј Рє РїРѕРїС‹С‚РєРµ РїР°СЂСЃРёРЅРіР°
+            // Р»РёС‚РµСЂР°Р»РѕРІ true Р»РёР±Рѕ false
             [[fallthrough]];
         case 'f':
             input.putback(c);
@@ -256,7 +249,7 @@ void PrintString(const std::string& value, std::ostream& out) {
                 out << "\\n"sv;
                 break;
             case '"':
-                // Символы " и \ выводятся как \" или \\, соответственно
+                // РЎРёРјРІРѕР»С‹ " Рё \ РІС‹РІРѕРґСЏС‚СЃСЏ РєР°Рє \" РёР»Рё \\, СЃРѕРѕС‚РІРµС‚СЃС‚РІРµРЅРЅРѕ
                 [[fallthrough]];
             case '\\':
                 out.put('\\');
@@ -279,9 +272,9 @@ void PrintValue<std::nullptr_t>(const std::nullptr_t&, const PrintContext& ctx) 
     ctx.out << "null"sv;
 }
 
-// В специализаци шаблона PrintValue для типа bool параметр value передаётся
-// по константной ссылке, как и в основном шаблоне.
-// В качестве альтернативы можно использовать перегрузку:
+// Р’ СЃРїРµС†РёР°Р»РёР·Р°С†Рё С€Р°Р±Р»РѕРЅР° PrintValue РґР»СЏ С‚РёРїР° bool РїР°СЂР°РјРµС‚СЂ value РїРµСЂРµРґР°С‘С‚СЃСЏ
+// РїРѕ РєРѕРЅСЃС‚Р°РЅС‚РЅРѕР№ СЃСЃС‹Р»РєРµ, РєР°Рє Рё РІ РѕСЃРЅРѕРІРЅРѕРј С€Р°Р±Р»РѕРЅРµ.
+// Р’ РєР°С‡РµСЃС‚РІРµ Р°Р»СЊС‚РµСЂРЅР°С‚РёРІС‹ РјРѕР¶РЅРѕ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїРµСЂРµРіСЂСѓР·РєСѓ:
 // void PrintValue(bool value, const PrintContext& ctx);
 template <>
 void PrintValue<bool>(const bool& value, const PrintContext& ctx) {
