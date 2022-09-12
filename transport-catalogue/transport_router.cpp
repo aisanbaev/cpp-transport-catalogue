@@ -48,10 +48,10 @@ const graph::DirectedWeightedGraph<double>& TransportRouter::CreateGraph() {
         const Bus* bus = bus_ptr;
         int size = bus->stops.size();
 
-        AddEdges(bus, 0, bus->number_stops);            // ‰Ó·‡‚ÎˇÂÏ ÔˇÏ˚Â Ï‡¯ÛÚ˚
+        AddEdges(bus, 0, bus->number_stops);            // –¥–æ–±–∞–≤–ª—è–µ–º –ø—Ä—è–º—ã–µ –º–∞—Ä—à—Ä—É—Ç—ã
 
-        if (size != bus->number_stops) {                // ÂÒÎË Ï‡¯ÛÚ ÌÂÍÓÎ¸ˆÂ‚ÓÈ
-            AddEdges(bus, bus->number_stops - 1, size); // ‰Ó·‡‚ÎˇÂÏ Ó·‡ÚÌ˚Â Ï‡¯ÛÚ˚
+        if (size != bus->number_stops) {                // –µ—Å–ª–∏ –º–∞—Ä—à—Ä—É—Ç –Ω–µ–∫–æ–ª—å—Ü–µ–≤–æ–π
+            AddEdges(bus, bus->number_stops - 1, size); // –¥–æ–±–∞–≤–ª—è–µ–º –æ–±—Ä–∞—Ç–Ω—ã–µ –º–∞—Ä—à—Ä—É—Ç—ã
         }
     }
     return transport_graph_;
