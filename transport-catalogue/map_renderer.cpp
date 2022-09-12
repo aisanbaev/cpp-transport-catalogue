@@ -28,7 +28,7 @@ void MapRenderer::DrawBusRoutes(const SphereProjector& proj) {
 
         const Bus* bus = busname_to_bus_.at(name);
         for (const Stop* stop : bus->stops) {
-            const svg::Point screen_coord = proj(stop->coordinates); // Проецируем координаты
+            const svg::Point screen_coord = proj(stop->coordinates); // ГЏГ°Г®ГҐГ¶ГЁГ°ГіГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ»
             bus_line.AddPoint(screen_coord);
         }
 
@@ -145,7 +145,7 @@ void MapRenderer::CreateDocumentSVG() {
         }
     }
 
-    // Создаём проектор сферических координат на карту
+    // РЎРѕР·РґР°С‘Рј РїСЂРѕРµРєС‚РѕСЂ СЃС„РµСЂРёС‡РµСЃРєРёС… РєРѕРѕСЂРґРёРЅР°С‚ РЅР° РєР°СЂС‚Сѓ
     const SphereProjector proj{
         geo_coords_.begin(), geo_coords_.end(), render_settings_.width, render_settings_.height, render_settings_.padding
     };
